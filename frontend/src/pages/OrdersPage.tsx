@@ -6,6 +6,7 @@ import { Alert, Button, Card } from '@/components/UI';
 import * as t from '@/types';
 
 export function OrdersPage() {
+  const ORDERS_PER_PAGE = 6;
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isGuest } = useAuth();
@@ -21,6 +22,7 @@ export function OrdersPage() {
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundError, setRefundError] = useState('');
   const [refundSuccess, setRefundSuccess] = useState<t.RefundRequest | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -94,6 +96,10 @@ export function OrdersPage() {
     });
   }, [orders, selectedStatuses, dateFromFilter, dateToFilter]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
+  const pageStart = (currentPage - 1) * ORDERS_PER_PAGE;
+  const paginatedOrders = filteredOrders.slice(pageStart, pageStart + ORDERS_PER_PAGE);
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -102,6 +108,7 @@ export function OrdersPage() {
           setAccountInfo({ masked_email: user?.email || 'Guest user' });
           setOrders([]);
           setLatestStatuses({});
+          setCurrentPage(1);
         } else {
           const [accData, ordersData] = await Promise.all([
             apiClient.getAccountMe(),
@@ -109,6 +116,7 @@ export function OrdersPage() {
           ]);
           setAccountInfo({ masked_email: accData.email_masked || 'Unknown account' });
           setOrders(ordersData);
+          setCurrentPage(1);
 
           const statusEntries = await Promise.all(
             ordersData.map(async (order) => {
@@ -127,6 +135,16 @@ export function OrdersPage() {
 
     loadData();
   }, [isGuest, user?.email]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedStatuses, dateFromFilter, dateToFilter, orders.length]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   useEffect(() => {
     if (isGuest) {
@@ -289,8 +307,18 @@ export function OrdersPage() {
         {filteredOrders.length === 0 ? (
           <p className="text-gray-500">No orders found</p>
         ) : (
-          <div className="space-y-3">
-            {filteredOrders.map((order) => (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <p>
+                Showing {pageStart + 1}-{Math.min(pageStart + ORDERS_PER_PAGE, filteredOrders.length)} of {filteredOrders.length} orders
+              </p>
+              <p>
+                Page {currentPage} / {totalPages}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+            {paginatedOrders.map((order) => (
               <div
                 key={order.order_id}
                 className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition"
@@ -323,6 +351,26 @@ export function OrdersPage() {
                 </p>
               </div>
             ))}
+            </div>
+
+            <div className="flex items-center justify-start gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         )}
       </Card>
