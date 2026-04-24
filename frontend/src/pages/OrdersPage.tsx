@@ -92,7 +92,7 @@ export function OrdersPage() {
 
       return true;
     });
-  }, [orders, latestStatuses, selectedStatuses, dateFromFilter, dateToFilter]);
+  }, [orders, selectedStatuses, dateFromFilter, dateToFilter]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -101,6 +101,7 @@ export function OrdersPage() {
         if (isGuest) {
           setAccountInfo({ masked_email: user?.email || 'Guest user' });
           setOrders([]);
+          setLatestStatuses({});
         } else {
           const [accData, ordersData] = await Promise.all([
             apiClient.getAccountMe(),
@@ -126,6 +127,63 @@ export function OrdersPage() {
 
     loadData();
   }, [isGuest, user?.email]);
+
+  useEffect(() => {
+    if (isGuest) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const handleOrderNotifications = (event: Event) => {
+      const customEvent = event as CustomEvent<t.LiveNotification[]>;
+      const notifications = Array.isArray(customEvent.detail) ? customEvent.detail : [];
+      const updatedOrderIds = new Set(
+        notifications
+          .map((notification) => notification.order_id)
+          .filter((orderId): orderId is string => Boolean(orderId))
+      );
+
+      if (updatedOrderIds.size === 0) {
+        return;
+      }
+
+      void (async () => {
+        try {
+          const freshOrders = await apiClient.getUserOrders({ forceRefresh: true });
+          if (!isMounted) {
+            return;
+          }
+
+          setOrders(freshOrders);
+
+          const statusEntries = await Promise.all(
+            freshOrders.map(async (order) => {
+              const timeline = await apiClient.getOrderTimeline(order.order_id, {
+                forceRefresh: updatedOrderIds.has(order.order_id),
+              });
+              return [order.order_id, timeline.current_status] as const;
+            })
+          );
+
+          if (!isMounted) {
+            return;
+          }
+
+          setLatestStatuses(Object.fromEntries(statusEntries));
+        } catch (err) {
+          console.error('[orders] failed to refresh after notification', err);
+        }
+      })();
+    };
+
+    window.addEventListener('order-notifications-received', handleOrderNotifications as EventListener);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('order-notifications-received', handleOrderNotifications as EventListener);
+    };
+  }, [isGuest]);
 
   const openRefundDialog = (order: t.Order) => {
     setRefundOrder(order);

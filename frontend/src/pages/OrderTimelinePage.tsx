@@ -47,7 +47,7 @@ export function OrderTimelinePage() {
 
     const refreshTimeline = async () => {
       try {
-        const timelineResponse = await apiClient.getOrderTimeline(orderId);
+        const timelineResponse = await apiClient.getOrderTimeline(orderId, { forceRefresh: true });
         if (!isMounted) {
           return;
         }

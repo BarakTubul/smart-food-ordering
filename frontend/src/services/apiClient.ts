@@ -67,9 +67,21 @@ function formatAxiosError(error: unknown): string {
 }
 
 class APIClient {
+  private static readonly ACCOUNT_CACHE_TTL_MS = 60_000;
+  private static readonly ORDERS_CACHE_TTL_MS = 30_000;
+  private static readonly REFUNDS_CACHE_TTL_MS = 20_000;
+
   private client: AxiosInstance;
   private accessToken: string | null;
   private unauthorizedHandlers: Array<() => void> = [];
+  private orderTimelineCache = new Map<string, t.OrderTimeline>();
+  private orderTimelineInFlight = new Map<string, Promise<t.OrderTimeline>>();
+  private accountCache: { value: t.AccountMeResponse; expiresAt: number } | null = null;
+  private accountInFlight: Promise<t.AccountMeResponse> | null = null;
+  private ordersCache: { value: t.Order[]; expiresAt: number } | null = null;
+  private ordersInFlight: Promise<t.Order[]> | null = null;
+  private refundsCache = new Map<string, { value: t.RefundRequest[]; expiresAt: number }>();
+  private refundsInFlight = new Map<string, Promise<t.RefundRequest[]>>();
 
   constructor() {
     this.accessToken = sessionStorage.getItem('access_token');
@@ -108,6 +120,7 @@ class APIClient {
         if (axios.isAxiosError(error)) {
           if (error.response?.status === 401 && this.accessToken) {
             this.setAccessToken(null);
+            this.clearCachedDomainData();
             this.unauthorizedHandlers.forEach((handler) => handler());
           }
           console.error('[api] axios error', {
@@ -127,12 +140,50 @@ class APIClient {
   }
 
   private setAccessToken(token: string | null): void {
+    const previousToken = this.accessToken;
     this.accessToken = token;
+
+    if (previousToken !== token) {
+      this.clearCachedDomainData();
+    }
+
     if (token) {
       sessionStorage.setItem('access_token', token);
       return;
     }
     sessionStorage.removeItem('access_token');
+  }
+
+  private clearCachedDomainData(): void {
+    this.accountCache = null;
+    this.accountInFlight = null;
+    this.ordersCache = null;
+    this.ordersInFlight = null;
+    this.refundsCache.clear();
+    this.refundsInFlight.clear();
+    this.orderTimelineCache.clear();
+    this.orderTimelineInFlight.clear();
+  }
+
+  private static isFresh(expiresAt: number): boolean {
+    return expiresAt > Date.now();
+  }
+
+  private invalidateAccountCache(): void {
+    this.accountCache = null;
+    this.accountInFlight = null;
+  }
+
+  private invalidateOrdersCacheInternal(): void {
+    this.ordersCache = null;
+    this.ordersInFlight = null;
+    this.orderTimelineCache.clear();
+    this.orderTimelineInFlight.clear();
+  }
+
+  private invalidateRefundsCache(): void {
+    this.refundsCache.clear();
+    this.refundsInFlight.clear();
   }
 
   getAccessToken(): string | null {
@@ -153,10 +204,17 @@ class APIClient {
     return response.data;
   }
 
-  async register(email: string, password: string): Promise<t.AuthTokenResponse> {
+  async register(
+    email: string,
+    password: string,
+    profile: { fullName: string; dateOfBirth: string; address: string }
+  ): Promise<t.AuthTokenResponse> {
     const response = await this.client.post<t.AuthTokenResponse>('/auth/register', {
       email,
       password,
+      full_name: profile.fullName,
+      date_of_birth: profile.dateOfBirth,
+      address: profile.address,
     });
     this.setAccessToken(response.data.access_token);
     return response.data;
@@ -182,6 +240,7 @@ class APIClient {
   async logout(): Promise<void> {
     await this.client.post('/auth/logout');
     this.setAccessToken(null);
+    this.clearCachedDomainData();
   }
 
   // Account endpoints
@@ -191,21 +250,66 @@ class APIClient {
   }
 
   async getAccountMe(): Promise<t.AccountMeResponse> {
-    const response = await this.client.get<t.AccountMeResponse>('/account/me');
-    return response.data;
+    if (this.accountCache && APIClient.isFresh(this.accountCache.expiresAt)) {
+      return this.accountCache.value;
+    }
+
+    if (this.accountInFlight) {
+      return this.accountInFlight;
+    }
+
+    const request = this.client
+      .get<t.AccountMeResponse>('/account/me')
+      .then((response) => {
+        const value = response.data;
+        this.accountCache = {
+          value,
+          expiresAt: Date.now() + APIClient.ACCOUNT_CACHE_TTL_MS,
+        };
+        return value;
+      })
+      .finally(() => {
+        this.accountInFlight = null;
+      });
+
+    this.accountInFlight = request;
+    return request;
   }
 
   async revealDemoCard(password: string): Promise<t.DemoCardRevealResponse> {
     const response = await this.client.post<t.DemoCardRevealResponse>('/account/demo-card/reveal', {
       password,
     });
+    this.invalidateAccountCache();
     return response.data;
   }
 
   // Order endpoints
-  async getUserOrders(): Promise<t.Order[]> {
-    const response = await this.client.get<t.Order[]>('/orders');
-    return response.data;
+  async getUserOrders(options: { forceRefresh?: boolean } = {}): Promise<t.Order[]> {
+    if (!options.forceRefresh && this.ordersCache && APIClient.isFresh(this.ordersCache.expiresAt)) {
+      return this.ordersCache.value;
+    }
+
+    if (!options.forceRefresh && this.ordersInFlight) {
+      return this.ordersInFlight;
+    }
+
+    const request = this.client
+      .get<t.Order[]>('/orders')
+      .then((response) => {
+        const value = response.data;
+        this.ordersCache = {
+          value,
+          expiresAt: Date.now() + APIClient.ORDERS_CACHE_TTL_MS,
+        };
+        return value;
+      })
+      .finally(() => {
+        this.ordersInFlight = null;
+      });
+
+    this.ordersInFlight = request;
+    return request;
   }
 
   async getOrderDetail(orderId: string): Promise<t.Order> {
@@ -213,41 +317,82 @@ class APIClient {
     return response.data;
   }
 
-  async getOrderTimeline(orderId: string): Promise<t.OrderTimeline> {
-    const response = await this.client.get<{
-      order_id: string;
-      scenario_id: string;
-      is_delayed?: boolean;
-      issue_code?: string | null;
-      ordered_items_summary?: string | null;
-      received_items_summary?: string | null;
-      eta_from?: string | null;
-      eta_to?: string | null;
-      events: Array<{ event: string; timestamp: string; source: string }>;
-    }>(`/orders/${orderId}/timeline-sim`);
+  async getOrderTimeline(orderId: string, options: { forceRefresh?: boolean } = {}): Promise<t.OrderTimeline> {
+    if (!options.forceRefresh) {
+      const cachedTimeline = this.orderTimelineCache.get(orderId);
+      if (cachedTimeline) {
+        return cachedTimeline;
+      }
 
-    const filteredEvents = response.data.events.filter((event) => event.event !== 'status_snapshot');
+      const inFlightTimeline = this.orderTimelineInFlight.get(orderId);
+      if (inFlightTimeline) {
+        return inFlightTimeline;
+      }
+    }
 
-    const timeline = filteredEvents.map((event) => ({
-      date: new Date(event.timestamp).toLocaleString(),
-      event: event.event,
-    }));
+    const request = this.client
+      .get<{
+        order_id: string;
+        scenario_id: string;
+        is_delayed?: boolean;
+        issue_code?: string | null;
+        ordered_items_summary?: string | null;
+        received_items_summary?: string | null;
+        eta_from?: string | null;
+        eta_to?: string | null;
+        events: Array<{ event: string; timestamp: string; source: string }>;
+      }>(`/orders/${orderId}/timeline-sim`)
+      .then((response) => {
+        const filteredEvents = response.data.events.filter((event) => event.event !== 'status_snapshot');
 
-    return {
-      order_id: response.data.order_id,
-      scenario_id: response.data.scenario_id,
-      is_delayed: response.data.is_delayed,
-      issue_code: response.data.issue_code,
-      ordered_items_summary: response.data.ordered_items_summary,
-      received_items_summary: response.data.received_items_summary,
-      eta_from: response.data.eta_from,
-      eta_to: response.data.eta_to,
-      current_status:
-        filteredEvents.length > 0
-          ? filteredEvents[filteredEvents.length - 1].event
-          : 'unknown',
-      timeline,
-    };
+        const timeline: t.OrderTimeline = {
+          order_id: response.data.order_id,
+          scenario_id: response.data.scenario_id,
+          is_delayed: response.data.is_delayed,
+          issue_code: response.data.issue_code,
+          ordered_items_summary: response.data.ordered_items_summary,
+          received_items_summary: response.data.received_items_summary,
+          eta_from: response.data.eta_from,
+          eta_to: response.data.eta_to,
+          current_status:
+            filteredEvents.length > 0
+              ? filteredEvents[filteredEvents.length - 1].event
+              : 'unknown',
+          timeline: filteredEvents.map((event) => ({
+            date: new Date(event.timestamp).toLocaleString(),
+            event: event.event,
+          })),
+        };
+
+        this.orderTimelineCache.set(orderId, timeline);
+        return timeline;
+      })
+      .finally(() => {
+        this.orderTimelineInFlight.delete(orderId);
+      });
+
+    this.orderTimelineInFlight.set(orderId, request);
+    return request;
+  }
+
+  invalidateOrderTimeline(orderId: string): void {
+    this.orderTimelineCache.delete(orderId);
+  }
+
+  invalidateOrderSnapshots(orderIds?: string[]): void {
+    this.ordersCache = null;
+    this.ordersInFlight = null;
+
+    if (!orderIds || orderIds.length === 0) {
+      this.orderTimelineCache.clear();
+      this.orderTimelineInFlight.clear();
+      return;
+    }
+
+    orderIds.forEach((orderId) => {
+      this.orderTimelineCache.delete(orderId);
+      this.orderTimelineInFlight.delete(orderId);
+    });
   }
 
   // Intent & FAQ endpoints
@@ -434,6 +579,7 @@ class APIClient {
       },
       { headers }
     );
+    this.invalidateRefundsCache();
     return {
       refund_request: response.data,
       status_code: response.status,
@@ -452,16 +598,46 @@ class APIClient {
     offset?: number;
     status?: string;
     query?: string;
-  }): Promise<t.RefundRequestListResponse> {
-    const response = await this.client.get<t.RefundRequestListResponse>('/refunds/requests', {
+  }): Promise<t.RefundRequest[]> {
+    const cacheKey = JSON.stringify({
+      limit: params?.limit ?? null,
+      offset: params?.offset ?? null,
+      status: params?.status ?? null,
+      query: params?.query ?? null,
+    });
+
+    const cached = this.refundsCache.get(cacheKey);
+    if (cached && APIClient.isFresh(cached.expiresAt)) {
+      return cached.value;
+    }
+
+    const inFlight = this.refundsInFlight.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const request = this.client.get<t.RefundRequest[]>('/refunds/requests', {
       params: {
         limit: params?.limit,
         offset: params?.offset,
         status: params?.status,
         q: params?.query,
       },
-    });
-    return response.data;
+    })
+      .then((response) => {
+        const value = response.data;
+        this.refundsCache.set(cacheKey, {
+          value,
+          expiresAt: Date.now() + APIClient.REFUNDS_CACHE_TTL_MS,
+        });
+        return value;
+      })
+      .finally(() => {
+        this.refundsInFlight.delete(cacheKey);
+      });
+
+    this.refundsInFlight.set(cacheKey, request);
+    return request;
   }
 
   async getOrderStateSim(
@@ -489,6 +665,7 @@ class APIClient {
     const response = await this.client.post<t.RefundRequest>(
       `/admin/refunds/requests/${refundRequestId}/claim`
     );
+    this.invalidateRefundsCache();
     return response.data;
   }
 
@@ -504,6 +681,7 @@ class APIClient {
         reviewer_note: reviewerNote || undefined,
       }
     );
+    this.invalidateRefundsCache();
     return response.data;
   }
 
@@ -569,6 +747,7 @@ class APIClient {
   ): Promise<t.OrderCreateResponse> {
     const headers = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {};
     const response = await this.client.post<t.OrderCreateResponse>('/orders', payload, { headers });
+    this.invalidateOrdersCacheInternal();
     return response.data;
   }
 
