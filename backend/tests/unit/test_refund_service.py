@@ -282,11 +282,11 @@ def test_list_user_refund_requests_returns_newest_first() -> None:
             idempotency_key="idem-list-2",
         )
 
-        refunds = service.list_user_refund_requests(user=user)
+        refunds = service.list_user_refund_requests(user=user, limit=50, offset=0)
 
-        assert [refund.order_id for refund in refunds] == ["ord-r-7", "ord-r-6"]
-        assert refunds[0].reason_code == RefundReasonCode.QUALITY_ISSUE
-        assert refunds[1].reason_code == RefundReasonCode.MISSING_ITEM
+        assert [refund.order_id for refund in refunds.items] == ["ord-r-7", "ord-r-6"]
+        assert refunds.items[0].reason_code == RefundReasonCode.QUALITY_ISSUE
+        assert refunds.items[1].reason_code == RefundReasonCode.MISSING_ITEM
     finally:
         session.close()
 
@@ -346,10 +346,10 @@ def test_list_user_refunds_normalizes_legacy_decision_reason_codes() -> None:
             refund_repository=refund_repo,
             user_repository=UserRepository(session),
         )
-        refunds = service.list_user_refund_requests(user=user)
+        refunds = service.list_user_refund_requests(user=user, limit=50, offset=0)
 
-        assert len(refunds) == 1
-        assert refunds[0].decision_reason_codes == [RefundDecisionReasonCode.REASON_CODE_NOT_SUPPORTED]
+        assert len(refunds.items) == 1
+        assert refunds.items[0].decision_reason_codes == [RefundDecisionReasonCode.REASON_CODE_NOT_SUPPORTED]
     finally:
         session.close()
 
@@ -380,11 +380,11 @@ def test_list_user_refunds_normalizes_legacy_reason_code_and_policy_version() ->
             refund_repository=refund_repo,
             user_repository=UserRepository(session),
         )
-        refunds = service.list_user_refund_requests(user=user)
+        refunds = service.list_user_refund_requests(user=user, limit=50, offset=0)
 
-        assert len(refunds) == 1
-        assert refunds[0].reason_code == RefundReasonCode.OTHER
-        assert refunds[0].policy_version is None
+        assert len(refunds.items) == 1
+        assert refunds.items[0].reason_code == RefundReasonCode.OTHER
+        assert refunds.items[0].policy_version is None
     finally:
         session.close()
 

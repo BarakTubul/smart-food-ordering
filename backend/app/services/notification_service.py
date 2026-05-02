@@ -32,10 +32,16 @@ class NotificationService:
 
         notifications: list[NotificationResponse] = []
 
-        orders = self.account_order_service.list_orders(user)
-        if orders:
+        orders_page = self.account_order_service.list_orders(user, limit=100, offset=0)
+        if orders_page.items:
             seen_statuses = _LAST_NOTIFIED_STATUSES.setdefault(user.id, {})
-            notifications.extend(self._build_order_notifications(user=user, orders=orders, seen_statuses=seen_statuses))
+            notifications.extend(
+                self._build_order_notifications(
+                    user=user,
+                    orders=orders_page.items,
+                    seen_statuses=seen_statuses,
+                )
+            )
 
         if user.is_admin:
             notifications.extend(self._build_admin_refund_notifications(user))

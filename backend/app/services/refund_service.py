@@ -26,6 +26,7 @@ from app.schemas.refund import (
     RefundEligibilityCheckResponse,
     RefundPolicyVersion,
     RefundReasonCode,
+    RefundRequestListResponse,
     RefundRequestStatus,
     RefundResolutionAction,
     RefundRequestResponse,
@@ -123,6 +124,16 @@ class RefundService:
                 idempotent_replay=True,
             )
 
+        duplicate_for_order = self.refund_repository.get_by_user_order(user_id=user.id, order_id=order.order_id)
+        if duplicate_for_order is not None:
+            raise ConflictError(
+                "Refund already requested for this order",
+                details={
+                    "conflict_type": "duplicate_refund_request",
+                    "order_id": order.order_id,
+                },
+            )
+
         eligibility = self.check_eligibility(
             user=user,
             payload=RefundEligibilityCheckRequest(
@@ -214,12 +225,57 @@ class RefundService:
 
         return self._build_refund_response_from_row(row)
 
-    def list_user_refund_requests(self, *, user: User) -> list[RefundRequestResponse]:
+    def list_user_refund_requests(
+        self,
+        *,
+        user: User,
+        limit: int,
+        offset: int,
+        status: str | None = None,
+        query: str | None = None,
+    ) -> RefundRequestListResponse:
         if user.is_guest:
-            return []
+            return RefundRequestListResponse(items=[], total=0, limit=limit, offset=offset)
 
-        rows = self.refund_repository.list_by_user_id(user_id=user.id)
-        return [self._build_refund_response_from_row(row) for row in rows]
+        statuses = self._normalize_status_filter(status)
+        normalized_query = query.strip() if query and query.strip() else None
+        rows = self.refund_repository.list_by_user_id(
+            user_id=user.id,
+            limit=limit,
+            offset=offset,
+            statuses=statuses,
+            query=normalized_query,
+        )
+        total = self.refund_repository.count_by_user_id(
+            user_id=user.id,
+            statuses=statuses,
+            query=normalized_query,
+        )
+        return RefundRequestListResponse(
+            items=[self._build_refund_response_from_row(row) for row in rows],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    @staticmethod
+    def _normalize_status_filter(status: str | None) -> list[str] | None:
+        if status is None:
+            return None
+
+        normalized = status.strip().lower()
+        if not normalized:
+            return None
+        if normalized == "approved":
+            return [RefundRequestStatus.SUBMITTED.value, RefundRequestStatus.RESOLVED.value]
+        if normalized in {
+            RefundRequestStatus.SUBMITTED.value,
+            RefundRequestStatus.DENIED.value,
+            RefundRequestStatus.PENDING_MANUAL_REVIEW.value,
+            RefundRequestStatus.RESOLVED.value,
+        }:
+            return [normalized]
+        return None
 
     def list_manual_review_queue(
         self,

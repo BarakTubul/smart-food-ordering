@@ -8,6 +8,7 @@ from app.schemas.account import (
     AccountMeResponse,
     DemoCardRevealRequest,
     DemoCardRevealResponse,
+    OrderListResponse,
     OrderResponse,
     OrderTimelineResponse,
     SessionStateResponse,
@@ -42,12 +43,14 @@ def reveal_demo_card(
     return account_order_service.reveal_demo_card(user=current_user, password=payload.password)
 
 
-@router.get("/orders", response_model=list[OrderResponse])
+@router.get("/orders", response_model=OrderListResponse)
 def list_orders(
+    limit: int = Query(default=10, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     account_order_service: AccountOrderService = Depends(get_account_order_service),
-) -> list[OrderResponse]:
-    return account_order_service.list_orders(current_user)
+) -> OrderListResponse:
+    return account_order_service.list_orders(current_user, limit=limit, offset=offset)
 
 
 @router.get("/orders/{order_id}", response_model=OrderResponse)

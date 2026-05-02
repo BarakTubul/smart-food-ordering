@@ -53,6 +53,13 @@ class OrderResponse(BaseModel):
     eta_to: datetime | None
 
 
+class OrderListResponse(BaseModel):
+    items: list[OrderResponse]
+    total: int
+    limit: int
+    offset: int
+
+
 class OrderTimelineResponse(BaseModel):
     order_id: str
     scenario_id: str

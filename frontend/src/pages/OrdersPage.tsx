@@ -12,6 +12,7 @@ export function OrdersPage() {
   const { user, isGuest } = useAuth();
   const [accountInfo, setAccountInfo] = useState<{ masked_email: string } | null>(null);
   const [orders, setOrders] = useState<t.Order[]>([]);
+  const [ordersTotal, setOrdersTotal] = useState(0);
   const [latestStatuses, setLatestStatuses] = useState<Record<string, string>>({});
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isStatusFilterTouched, setIsStatusFilterTouched] = useState(false);
@@ -96,9 +97,8 @@ export function OrdersPage() {
     });
   }, [orders, selectedStatuses, dateFromFilter, dateToFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(ordersTotal / ORDERS_PER_PAGE));
   const pageStart = (currentPage - 1) * ORDERS_PER_PAGE;
-  const paginatedOrders = filteredOrders.slice(pageStart, pageStart + ORDERS_PER_PAGE);
 
   useEffect(() => {
     const loadData = async () => {
@@ -107,19 +107,21 @@ export function OrdersPage() {
         if (isGuest) {
           setAccountInfo({ masked_email: user?.email || 'Guest user' });
           setOrders([]);
+          setOrdersTotal(0);
           setLatestStatuses({});
           setCurrentPage(1);
         } else {
-          const [accData, ordersData] = await Promise.all([
+          const offset = (currentPage - 1) * ORDERS_PER_PAGE;
+          const [accData, ordersPage] = await Promise.all([
             apiClient.getAccountMe(),
-            apiClient.getUserOrders(),
+            apiClient.getUserOrders({ limit: ORDERS_PER_PAGE, offset }),
           ]);
           setAccountInfo({ masked_email: accData.email_masked || 'Unknown account' });
-          setOrders(ordersData);
-          setCurrentPage(1);
+          setOrders(ordersPage.items);
+          setOrdersTotal(ordersPage.total);
 
           const statusEntries = await Promise.all(
-            ordersData.map(async (order) => {
+            ordersPage.items.map(async (order) => {
               const timeline = await apiClient.getOrderTimeline(order.order_id);
               return [order.order_id, timeline.current_status] as const;
             })
@@ -134,11 +136,11 @@ export function OrdersPage() {
     };
 
     loadData();
-  }, [isGuest, user?.email]);
+  }, [isGuest, user?.email, currentPage]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedStatuses, dateFromFilter, dateToFilter, orders.length]);
+  }, [selectedStatuses, dateFromFilter, dateToFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -168,15 +170,21 @@ export function OrdersPage() {
 
       void (async () => {
         try {
-          const freshOrders = await apiClient.getUserOrders({ forceRefresh: true });
+          const pageOffset = (currentPage - 1) * ORDERS_PER_PAGE;
+          const freshOrders = await apiClient.getUserOrders({
+            limit: ORDERS_PER_PAGE,
+            offset: pageOffset,
+            forceRefresh: true,
+          });
           if (!isMounted) {
             return;
           }
 
-          setOrders(freshOrders);
+          setOrders(freshOrders.items);
+          setOrdersTotal(freshOrders.total);
 
           const statusEntries = await Promise.all(
-            freshOrders.map(async (order) => {
+            freshOrders.items.map(async (order) => {
               const timeline = await apiClient.getOrderTimeline(order.order_id, {
                 forceRefresh: updatedOrderIds.has(order.order_id),
               });
@@ -201,7 +209,7 @@ export function OrdersPage() {
       isMounted = false;
       window.removeEventListener('order-notifications-received', handleOrderNotifications as EventListener);
     };
-  }, [isGuest]);
+  }, [isGuest, currentPage]);
 
   const openRefundDialog = (order: t.Order) => {
     setRefundOrder(order);
@@ -310,7 +318,7 @@ export function OrdersPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between text-sm text-gray-600">
               <p>
-                Showing {pageStart + 1}-{Math.min(pageStart + ORDERS_PER_PAGE, filteredOrders.length)} of {filteredOrders.length} orders
+                Showing {filteredOrders.length === 0 ? 0 : pageStart + 1}-{Math.min(pageStart + filteredOrders.length, ordersTotal)} of {ordersTotal} orders
               </p>
               <p>
                 Page {currentPage} / {totalPages}
@@ -318,7 +326,7 @@ export function OrdersPage() {
             </div>
 
             <div className="space-y-3">
-            {paginatedOrders.map((order) => (
+            {filteredOrders.map((order) => (
               <div
                 key={order.order_id}
                 className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition"

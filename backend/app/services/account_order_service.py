@@ -11,6 +11,7 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.account import (
     AccountMeResponse,
     DemoCardRevealResponse,
+    OrderListResponse,
     OrderResponse,
     OrderTimelineEvent,
     OrderTimelineResponse,
@@ -72,15 +73,17 @@ class AccountOrderService:
             raise NotFoundError("Demo card not found")
         return DemoCardRevealResponse(demo_card_number=user.demo_card_number)
 
-    def list_orders(self, user: User) -> list[OrderResponse]:
+    def list_orders(self, user: User, *, limit: int, offset: int) -> OrderListResponse:
         if user.is_guest:
-            return []
+            return OrderListResponse(items=[], total=0, limit=limit, offset=offset)
 
-        orders = self.order_repository.list_by_user(user.id)
-        return [
+        orders = self.order_repository.list_by_user(user.id, limit=limit, offset=offset)
+        total = self.order_repository.count_by_user(user.id)
+        items = [
             self._build_order_response(order)
             for order in orders
         ]
+        return OrderListResponse(items=items, total=total, limit=limit, offset=offset)
 
     def get_order(self, *, user: User, order_id: str) -> OrderResponse:
         if user.is_guest:

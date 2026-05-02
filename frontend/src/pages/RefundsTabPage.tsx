@@ -97,14 +97,14 @@ export function RefundsTabPage() {
   const navigate = useNavigate();
   const { isGuest } = useAuth();
   const [refunds, setRefunds] = useState<t.RefundRequest[]>([]);
+  const [refundsTotal, setRefundsTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedRefund, setExpandedRefund] = useState<string | null>(null);
 
-  const totalPages = Math.max(1, Math.ceil(refunds.length / REFUNDS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(refundsTotal / REFUNDS_PER_PAGE));
   const pageStart = (currentPage - 1) * REFUNDS_PER_PAGE;
-  const paginatedRefunds = refunds.slice(pageStart, pageStart + REFUNDS_PER_PAGE);
 
   useEffect(() => {
     const loadRefunds = async () => {
@@ -112,11 +112,15 @@ export function RefundsTabPage() {
         setError('');
         if (isGuest) {
           setRefunds([]);
+          setRefundsTotal(0);
           setCurrentPage(1);
         } else {
-          const data = await apiClient.listUserRefundRequests();
-          setRefunds(data);
-          setCurrentPage(1);
+          const data = await apiClient.listUserRefundRequests({
+            limit: REFUNDS_PER_PAGE,
+            offset: pageStart,
+          });
+          setRefunds(data.items);
+          setRefundsTotal(data.total);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load refund requests');
@@ -126,7 +130,7 @@ export function RefundsTabPage() {
     };
 
     loadRefunds();
-  }, [isGuest]);
+  }, [isGuest, currentPage]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -175,7 +179,7 @@ export function RefundsTabPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between text-sm text-gray-600">
               <p>
-                Showing {pageStart + 1}-{Math.min(pageStart + REFUNDS_PER_PAGE, refunds.length)} of {refunds.length} requests
+                Showing {refunds.length === 0 ? 0 : pageStart + 1}-{Math.min(pageStart + refunds.length, refundsTotal)} of {refundsTotal} requests
               </p>
               <p>
                 Page {currentPage} / {totalPages}
@@ -183,7 +187,7 @@ export function RefundsTabPage() {
             </div>
 
             <div className="space-y-3">
-            {paginatedRefunds.map((refund) => (
+            {refunds.map((refund) => (
               <div
                 key={refund.refund_request_id}
                 className="border border-gray-200 rounded-lg overflow-hidden hover:bg-gray-50 transition"

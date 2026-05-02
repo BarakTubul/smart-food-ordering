@@ -141,6 +141,13 @@ class RefundRequestResponse(BaseModel):
     idempotent_replay: bool = False
 
 
+class RefundRequestListResponse(BaseModel):
+    items: list[RefundRequestResponse]
+    total: int
+    limit: int
+    offset: int
+
+
 class OrderStateSimResponse(BaseModel):
     order_id: str
     simulation_scenario_id: str

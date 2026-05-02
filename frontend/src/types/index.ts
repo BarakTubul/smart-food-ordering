@@ -65,6 +65,13 @@ export interface Order {
   eta_to?: string;
 }
 
+export interface OrderListResponse {
+  items: Order[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface OrderTimeline {
   order_id: string;
   scenario_id?: string;

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -43,6 +44,16 @@ class OrderRepository:
         self.db.refresh(order)
         return order
 
-    def list_by_user(self, user_id: int) -> list[Order]:
-        stmt = select(Order).where(Order.user_id == user_id).order_by(Order.created_at.desc())
+    def list_by_user(self, user_id: int, *, limit: int, offset: int) -> list[Order]:
+        stmt = (
+            select(Order)
+            .where(Order.user_id == user_id)
+            .order_by(Order.created_at.desc())
+            .offset(max(0, offset))
+            .limit(max(1, limit))
+        )
         return list(self.db.scalars(stmt))
+
+    def count_by_user(self, user_id: int) -> int:
+        stmt = select(func.count()).select_from(Order).where(Order.user_id == user_id)
+        return int(self.db.scalar(stmt) or 0)

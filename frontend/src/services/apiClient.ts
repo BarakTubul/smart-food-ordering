@@ -78,10 +78,10 @@ class APIClient {
   private orderTimelineInFlight = new Map<string, Promise<t.OrderTimeline>>();
   private accountCache: { value: t.AccountMeResponse; expiresAt: number } | null = null;
   private accountInFlight: Promise<t.AccountMeResponse> | null = null;
-  private ordersCache: { value: t.Order[]; expiresAt: number } | null = null;
-  private ordersInFlight: Promise<t.Order[]> | null = null;
-  private refundsCache = new Map<string, { value: t.RefundRequest[]; expiresAt: number }>();
-  private refundsInFlight = new Map<string, Promise<t.RefundRequest[]>>();
+  private ordersCache = new Map<string, { value: t.OrderListResponse; expiresAt: number }>();
+  private ordersInFlight = new Map<string, Promise<t.OrderListResponse>>();
+  private refundsCache = new Map<string, { value: t.RefundRequestListResponse; expiresAt: number }>();
+  private refundsInFlight = new Map<string, Promise<t.RefundRequestListResponse>>();
 
   constructor() {
     this.accessToken = sessionStorage.getItem('access_token');
@@ -157,8 +157,8 @@ class APIClient {
   private clearCachedDomainData(): void {
     this.accountCache = null;
     this.accountInFlight = null;
-    this.ordersCache = null;
-    this.ordersInFlight = null;
+    this.ordersCache.clear();
+    this.ordersInFlight.clear();
     this.refundsCache.clear();
     this.refundsInFlight.clear();
     this.orderTimelineCache.clear();
@@ -175,8 +175,8 @@ class APIClient {
   }
 
   private invalidateOrdersCacheInternal(): void {
-    this.ordersCache = null;
-    this.ordersInFlight = null;
+    this.ordersCache.clear();
+    this.ordersInFlight.clear();
     this.orderTimelineCache.clear();
     this.orderTimelineInFlight.clear();
   }
@@ -285,30 +285,44 @@ class APIClient {
   }
 
   // Order endpoints
-  async getUserOrders(options: { forceRefresh?: boolean } = {}): Promise<t.Order[]> {
-    if (!options.forceRefresh && this.ordersCache && APIClient.isFresh(this.ordersCache.expiresAt)) {
-      return this.ordersCache.value;
+  async getUserOrders(
+    params: { limit?: number; offset?: number; forceRefresh?: boolean } = {}
+  ): Promise<t.OrderListResponse> {
+    const cacheKey = JSON.stringify({
+      limit: params.limit ?? null,
+      offset: params.offset ?? null,
+    });
+
+    const cached = this.ordersCache.get(cacheKey);
+    if (!params.forceRefresh && cached && APIClient.isFresh(cached.expiresAt)) {
+      return cached.value;
     }
 
-    if (!options.forceRefresh && this.ordersInFlight) {
-      return this.ordersInFlight;
+    const inFlight = this.ordersInFlight.get(cacheKey);
+    if (!params.forceRefresh && inFlight) {
+      return inFlight;
     }
 
     const request = this.client
-      .get<t.Order[]>('/orders')
+      .get<t.OrderListResponse>('/orders', {
+        params: {
+          limit: params.limit,
+          offset: params.offset,
+        },
+      })
       .then((response) => {
         const value = response.data;
-        this.ordersCache = {
+        this.ordersCache.set(cacheKey, {
           value,
           expiresAt: Date.now() + APIClient.ORDERS_CACHE_TTL_MS,
-        };
+        });
         return value;
       })
       .finally(() => {
-        this.ordersInFlight = null;
+        this.ordersInFlight.delete(cacheKey);
       });
 
-    this.ordersInFlight = request;
+    this.ordersInFlight.set(cacheKey, request);
     return request;
   }
 
@@ -380,8 +394,8 @@ class APIClient {
   }
 
   invalidateOrderSnapshots(orderIds?: string[]): void {
-    this.ordersCache = null;
-    this.ordersInFlight = null;
+    this.ordersCache.clear();
+    this.ordersInFlight.clear();
 
     if (!orderIds || orderIds.length === 0) {
       this.orderTimelineCache.clear();
@@ -598,7 +612,7 @@ class APIClient {
     offset?: number;
     status?: string;
     query?: string;
-  }): Promise<t.RefundRequest[]> {
+  }): Promise<t.RefundRequestListResponse> {
     const cacheKey = JSON.stringify({
       limit: params?.limit ?? null,
       offset: params?.offset ?? null,
@@ -616,7 +630,7 @@ class APIClient {
       return inFlight;
     }
 
-    const request = this.client.get<t.RefundRequest[]>('/refunds/requests', {
+    const request = this.client.get<t.RefundRequestListResponse>('/refunds/requests', {
       params: {
         limit: params?.limit,
         offset: params?.offset,
