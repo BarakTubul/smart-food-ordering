@@ -65,7 +65,6 @@ class ShippingAddressRequest(BaseModel):
 
 class CheckoutValidateRequest(BaseModel):
     shipping_address: ShippingAddressRequest
-    delivery_option: str = Field(min_length=3, max_length=32)
     payment_method_reference: str = Field(min_length=3, max_length=128)
 
 

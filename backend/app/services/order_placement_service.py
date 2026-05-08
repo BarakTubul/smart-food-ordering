@@ -132,7 +132,7 @@ class OrderPlacementService:
     def validate_checkout(self, user: User, payload: CheckoutValidateRequest) -> CheckoutValidateResponse:
         issues: list[str] = []
         cart = self._build_cart_response(user.id)
-        delivery_fee = 300 if payload.delivery_option == "standard" else 650
+        delivery_fee = 0  # Temporarily removed
         total_cents = cart.subtotal_cents + delivery_fee
 
         if not cart.items:

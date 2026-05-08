@@ -54,7 +54,6 @@ export function OrderPlacementPage() {
   const [sortBy, setSortBy] = useState<'featured' | 'name' | 'price_asc' | 'price_desc' | 'restaurant'>('featured');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(4);
-  const [deliveryOption, setDeliveryOption] = useState<'standard' | 'express'>('standard');
   const [shippingAddress, setShippingAddress] = useState<t.ShippingAddress>({
     line1: '',
     city: '',
@@ -70,10 +69,9 @@ export function OrderPlacementPage() {
   const checkoutPayload = useMemo<t.CheckoutValidateRequest>(
     () => ({
       shipping_address: shippingAddress,
-      delivery_option: deliveryOption,
       payment_method_reference: paymentReference,
     }),
-    [shippingAddress, deliveryOption, paymentReference]
+    [shippingAddress, paymentReference]
   );
 
   const fetchCatalogPage = async (params: t.CatalogQueryParams): Promise<t.CatalogListResponse> => {
@@ -401,11 +399,6 @@ export function OrderPlacementPage() {
                       {item.restaurant_delivery_time && (
                         <span className="px-2 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-100">
                           {item.restaurant_delivery_time} min
-                        </span>
-                      )}
-                      {item.restaurant_delivery_fee_cents !== null && item.restaurant_delivery_fee_cents !== undefined && (
-                        <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100">
-                          Fee {formatCents(item.restaurant_delivery_fee_cents)}
                         </span>
                       )}
                     </div>
