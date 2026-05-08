@@ -48,7 +48,17 @@ export function OrdersPage() {
 
   useEffect(() => {
     if (!isStatusFilterTouched) {
-      setSelectedStatuses(statusOptions);
+      setSelectedStatuses((current) => {
+        const normalizedCurrent = [...current].sort();
+        const normalizedOptions = [...statusOptions].sort();
+        if (
+          normalizedCurrent.length === normalizedOptions.length &&
+          normalizedCurrent.every((value, index) => value === normalizedOptions[index])
+        ) {
+          return current;
+        }
+        return statusOptions;
+      });
     }
   }, [statusOptions, isStatusFilterTouched]);
 
@@ -61,6 +71,7 @@ export function OrdersPage() {
 
   const toggleStatus = (status: string) => {
     setIsStatusFilterTouched(true);
+    setCurrentPage(1);
     setSelectedStatuses((current) => {
       if (current.includes(status)) {
         return current.filter((item) => item !== status);
@@ -137,10 +148,6 @@ export function OrdersPage() {
 
     loadData();
   }, [isGuest, user?.email, currentPage]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedStatuses, dateFromFilter, dateToFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -283,7 +290,10 @@ export function OrdersPage() {
             <input
               type="date"
               value={dateFromFilter}
-              onChange={(event) => setDateFromFilter(event.target.value)}
+              onChange={(event) => {
+                setCurrentPage(1);
+                setDateFromFilter(event.target.value);
+              }}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
             />
           </div>
@@ -292,7 +302,10 @@ export function OrdersPage() {
             <input
               type="date"
               value={dateToFilter}
-              onChange={(event) => setDateToFilter(event.target.value)}
+              onChange={(event) => {
+                setCurrentPage(1);
+                setDateToFilter(event.target.value);
+              }}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
             />
           </div>
@@ -301,6 +314,7 @@ export function OrdersPage() {
               variant="outline"
               className="w-full"
               onClick={() => {
+                setCurrentPage(1);
                 setIsStatusFilterTouched(false);
                 setSelectedStatuses(statusOptions);
                 setDateFromFilter('');

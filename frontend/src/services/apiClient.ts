@@ -715,8 +715,8 @@ class APIClient {
     return response.data;
   }
 
-  async getCart(): Promise<t.CartResponse> {
-    const response = await this.client.get<t.CartResponse>('/cart');
+  async getCart(signal?: AbortSignal): Promise<t.CartResponse> {
+    const response = await this.client.get<t.CartResponse>('/cart', { signal });
     return response.data;
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
 import { apiClient } from '@/services/apiClient';
 import { Alert, Button, Card, Input } from '@/components/UI';
 import * as t from '@/types';
@@ -36,6 +37,7 @@ function formatCardInput(value: string): string {
 export function OrderPlacementPage() {
   const navigate = useNavigate();
   const { isGuest } = useAuth();
+  const { cart, fetchCart, addItem, updateItem } = useCart();
 
   const [catalog, setCatalog] = useState<t.CatalogItem[]>([]);
   const [catalogTotalItems, setCatalogTotalItems] = useState(0);
@@ -44,7 +46,6 @@ export function OrderPlacementPage() {
   const [hasPrevPage, setHasPrevPage] = useState(false);
   const [restaurantOptions, setRestaurantOptions] = useState<string[]>([]);
   const [cuisineOptions, setCuisineOptions] = useState<string[]>([]);
-  const [cart, setCart] = useState<t.CartResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [restaurantFilter, setRestaurantFilter] = useState('all');
@@ -142,10 +143,13 @@ export function OrderPlacementPage() {
   ]);
 
   useEffect(() => {
-    const loadOrderData = async () => {
+    const controller = new AbortController();
+
+    const loadInitialData = async () => {
       try {
         setError('');
-        const [catalogItems, userCart] = await Promise.all([
+        setLoading(true);
+        await Promise.all([
           fetchCatalogPage({
             page: currentPage,
             page_size: pageSize,
@@ -155,49 +159,29 @@ export function OrderPlacementPage() {
             availability: availabilityFilter as 'all' | 'available' | 'out_of_stock',
             sort_by: sortBy,
           }),
-          apiClient.getCart(),
+          fetchCart(controller.signal),
         ]);
-        setCatalog(catalogItems.items);
-        setCatalogTotalItems(catalogItems.total_items);
-        setCatalogTotalPages(catalogItems.total_pages);
-        setHasNextPage(catalogItems.has_next);
-        setHasPrevPage(catalogItems.has_prev);
-        setRestaurantOptions(catalogItems.restaurants);
-        setCuisineOptions(catalogItems.cuisines);
-        setCart(userCart);
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
         setError(err instanceof Error ? err.message : 'Failed to load order screen');
       } finally {
         setLoading(false);
       }
     };
 
-    loadOrderData();
-  }, [isGuest]);
+    loadInitialData();
 
-  const reloadCart = async () => {
-    const updated = await apiClient.getCart();
-    setCart(updated);
-  };
+    return () => controller.abort();
+  }, []);
 
   const handleAddToCart = async (itemId: string) => {
-    try {
-      setError('');
-      const updated = await apiClient.addCartItem(itemId, 1);
-      setCart(updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add item');
-    }
+    await addItem(itemId, 1);
   };
 
   const handleUpdateQty = async (itemId: string, qty: number) => {
-    try {
-      setError('');
-      const updated = await apiClient.updateCartItem(itemId, qty);
-      setCart(updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update cart');
-    }
+    await updateItem(itemId, qty);
   };
 
   const handleValidateCheckout = async () => {
@@ -238,7 +222,7 @@ export function OrderPlacementPage() {
       );
 
       setOrderResult(created);
-      await reloadCart();
+      await fetchCart();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Order submission failed');
     } finally {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { CartProvider } from '@/context/CartContext';
 import { Header } from '@/components/Header';
 import { FloatingChatWidget } from '@/components/FloatingChatWidget';
 import { IndexPage } from '@/pages/IndexPage';
@@ -145,7 +146,9 @@ export function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppRoutes />
+        <CartProvider>
+          <AppRoutes />
+        </CartProvider>
       </AuthProvider>
     </Router>
   );
