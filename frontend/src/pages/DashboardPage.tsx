@@ -11,7 +11,7 @@ export function DashboardPage() {
     date_of_birth?: string | null;
     address?: string | null;
     demo_card_last4?: string | null;
-    balance_cents?: number;
+    balance_cents?: number | null;
   } | null>(null);
   const [demoCardPassword, setDemoCardPassword] = useState('');
   const [revealedDemoCard, setRevealedDemoCard] = useState('');
@@ -20,7 +20,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const formatCents = (cents?: number): string =>
+  const formatCents = (cents?: number | null): string =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',

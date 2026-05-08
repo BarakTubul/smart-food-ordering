@@ -62,6 +62,34 @@ export function Header() {
 
         setNotifications((current) => [...newNotifications, ...current].slice(0, 6));
 
+        const orderNotifications = newNotifications.filter((notification) => {
+          if (notification.kind === 'order') {
+            return true;
+          }
+          if (notification.order_id) {
+            return true;
+          }
+          return (notification.target_path || '').includes('/orders/');
+        });
+
+        if (orderNotifications.length > 0) {
+          const orderIds = Array.from(
+            new Set(
+              orderNotifications
+                .map((notification) => notification.order_id)
+                .filter((orderId): orderId is string => Boolean(orderId))
+            )
+          );
+
+          apiClient.invalidateOrderSnapshots(orderIds);
+
+          window.dispatchEvent(
+            new CustomEvent<t.LiveNotification[]>('order-notifications-received', {
+              detail: orderNotifications,
+            })
+          );
+        }
+
         const alertText = newNotifications
           .map((notification) => `${notification.title}: ${notification.message}`)
           .join('\n');

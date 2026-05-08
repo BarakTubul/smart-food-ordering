@@ -6,11 +6,13 @@ import { Alert, Button, Card } from '@/components/UI';
 import * as t from '@/types';
 
 export function OrdersPage() {
+  const ORDERS_PER_PAGE = 6;
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isGuest } = useAuth();
   const [accountInfo, setAccountInfo] = useState<{ masked_email: string } | null>(null);
   const [orders, setOrders] = useState<t.Order[]>([]);
+  const [ordersTotal, setOrdersTotal] = useState(0);
   const [latestStatuses, setLatestStatuses] = useState<Record<string, string>>({});
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isStatusFilterTouched, setIsStatusFilterTouched] = useState(false);
@@ -21,6 +23,7 @@ export function OrdersPage() {
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundError, setRefundError] = useState('');
   const [refundSuccess, setRefundSuccess] = useState<t.RefundRequest | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -45,7 +48,17 @@ export function OrdersPage() {
 
   useEffect(() => {
     if (!isStatusFilterTouched) {
-      setSelectedStatuses(statusOptions);
+      setSelectedStatuses((current) => {
+        const normalizedCurrent = [...current].sort();
+        const normalizedOptions = [...statusOptions].sort();
+        if (
+          normalizedCurrent.length === normalizedOptions.length &&
+          normalizedCurrent.every((value, index) => value === normalizedOptions[index])
+        ) {
+          return current;
+        }
+        return statusOptions;
+      });
     }
   }, [statusOptions, isStatusFilterTouched]);
 
@@ -58,6 +71,7 @@ export function OrdersPage() {
 
   const toggleStatus = (status: string) => {
     setIsStatusFilterTouched(true);
+    setCurrentPage(1);
     setSelectedStatuses((current) => {
       if (current.includes(status)) {
         return current.filter((item) => item !== status);
@@ -92,7 +106,10 @@ export function OrdersPage() {
 
       return true;
     });
-  }, [orders, latestStatuses, selectedStatuses, dateFromFilter, dateToFilter]);
+  }, [orders, selectedStatuses, dateFromFilter, dateToFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(ordersTotal / ORDERS_PER_PAGE));
+  const pageStart = (currentPage - 1) * ORDERS_PER_PAGE;
 
   useEffect(() => {
     const loadData = async () => {
@@ -101,16 +118,21 @@ export function OrdersPage() {
         if (isGuest) {
           setAccountInfo({ masked_email: user?.email || 'Guest user' });
           setOrders([]);
+          setOrdersTotal(0);
+          setLatestStatuses({});
+          setCurrentPage(1);
         } else {
-          const [accData, ordersData] = await Promise.all([
+          const offset = (currentPage - 1) * ORDERS_PER_PAGE;
+          const [accData, ordersPage] = await Promise.all([
             apiClient.getAccountMe(),
-            apiClient.getUserOrders(),
+            apiClient.getUserOrders({ limit: ORDERS_PER_PAGE, offset }),
           ]);
           setAccountInfo({ masked_email: accData.email_masked || 'Unknown account' });
-          setOrders(ordersData);
+          setOrders(ordersPage.items);
+          setOrdersTotal(ordersPage.total);
 
           const statusEntries = await Promise.all(
-            ordersData.map(async (order) => {
+            ordersPage.items.map(async (order) => {
               const timeline = await apiClient.getOrderTimeline(order.order_id);
               return [order.order_id, timeline.current_status] as const;
             })
@@ -125,7 +147,76 @@ export function OrdersPage() {
     };
 
     loadData();
-  }, [isGuest, user?.email]);
+  }, [isGuest, user?.email, currentPage]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    if (isGuest) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const handleOrderNotifications = (event: Event) => {
+      const customEvent = event as CustomEvent<t.LiveNotification[]>;
+      const notifications = Array.isArray(customEvent.detail) ? customEvent.detail : [];
+      const updatedOrderIds = new Set(
+        notifications
+          .map((notification) => notification.order_id)
+          .filter((orderId): orderId is string => Boolean(orderId))
+      );
+
+      if (updatedOrderIds.size === 0) {
+        return;
+      }
+
+      void (async () => {
+        try {
+          const pageOffset = (currentPage - 1) * ORDERS_PER_PAGE;
+          const freshOrders = await apiClient.getUserOrders({
+            limit: ORDERS_PER_PAGE,
+            offset: pageOffset,
+            forceRefresh: true,
+          });
+          if (!isMounted) {
+            return;
+          }
+
+          setOrders(freshOrders.items);
+          setOrdersTotal(freshOrders.total);
+
+          const statusEntries = await Promise.all(
+            freshOrders.items.map(async (order) => {
+              const timeline = await apiClient.getOrderTimeline(order.order_id, {
+                forceRefresh: updatedOrderIds.has(order.order_id),
+              });
+              return [order.order_id, timeline.current_status] as const;
+            })
+          );
+
+          if (!isMounted) {
+            return;
+          }
+
+          setLatestStatuses(Object.fromEntries(statusEntries));
+        } catch (err) {
+          console.error('[orders] failed to refresh after notification', err);
+        }
+      })();
+    };
+
+    window.addEventListener('order-notifications-received', handleOrderNotifications as EventListener);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('order-notifications-received', handleOrderNotifications as EventListener);
+    };
+  }, [isGuest, currentPage]);
 
   const openRefundDialog = (order: t.Order) => {
     setRefundOrder(order);
@@ -199,7 +290,10 @@ export function OrdersPage() {
             <input
               type="date"
               value={dateFromFilter}
-              onChange={(event) => setDateFromFilter(event.target.value)}
+              onChange={(event) => {
+                setCurrentPage(1);
+                setDateFromFilter(event.target.value);
+              }}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
             />
           </div>
@@ -208,7 +302,10 @@ export function OrdersPage() {
             <input
               type="date"
               value={dateToFilter}
-              onChange={(event) => setDateToFilter(event.target.value)}
+              onChange={(event) => {
+                setCurrentPage(1);
+                setDateToFilter(event.target.value);
+              }}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
             />
           </div>
@@ -217,6 +314,7 @@ export function OrdersPage() {
               variant="outline"
               className="w-full"
               onClick={() => {
+                setCurrentPage(1);
                 setIsStatusFilterTouched(false);
                 setSelectedStatuses(statusOptions);
                 setDateFromFilter('');
@@ -231,7 +329,17 @@ export function OrdersPage() {
         {filteredOrders.length === 0 ? (
           <p className="text-gray-500">No orders found</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <p>
+                Showing {filteredOrders.length === 0 ? 0 : pageStart + 1}-{Math.min(pageStart + filteredOrders.length, ordersTotal)} of {ordersTotal} orders
+              </p>
+              <p>
+                Page {currentPage} / {totalPages}
+              </p>
+            </div>
+
+            <div className="space-y-3">
             {filteredOrders.map((order) => (
               <div
                 key={order.order_id}
@@ -265,6 +373,26 @@ export function OrdersPage() {
                 </p>
               </div>
             ))}
+            </div>
+
+            <div className="flex items-center justify-start gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         )}
       </Card>

@@ -25,7 +25,7 @@ export function RefundPage() {
     const loadOrders = async () => {
       try {
         const data = await apiClient.getUserOrders();
-        setOrders(data);
+        setOrders(data.items);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load orders');
       }

@@ -93,12 +93,18 @@ function getSimpleRefundStatusMessage(refund: t.RefundRequest): string {
 }
 
 export function RefundsTabPage() {
+  const REFUNDS_PER_PAGE = 6;
   const navigate = useNavigate();
   const { isGuest } = useAuth();
   const [refunds, setRefunds] = useState<t.RefundRequest[]>([]);
+  const [refundsTotal, setRefundsTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedRefund, setExpandedRefund] = useState<string | null>(null);
+
+  const totalPages = Math.max(1, Math.ceil(refundsTotal / REFUNDS_PER_PAGE));
+  const pageStart = (currentPage - 1) * REFUNDS_PER_PAGE;
 
   useEffect(() => {
     const loadRefunds = async () => {
@@ -106,9 +112,15 @@ export function RefundsTabPage() {
         setError('');
         if (isGuest) {
           setRefunds([]);
+          setRefundsTotal(0);
+          setCurrentPage(1);
         } else {
-          const data = await apiClient.listUserRefundRequests();
-          setRefunds(data);
+          const data = await apiClient.listUserRefundRequests({
+            limit: REFUNDS_PER_PAGE,
+            offset: pageStart,
+          });
+          setRefunds(data.items);
+          setRefundsTotal(data.total);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load refund requests');
@@ -118,7 +130,13 @@ export function RefundsTabPage() {
     };
 
     loadRefunds();
-  }, [isGuest]);
+  }, [isGuest, currentPage]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   if (loading) {
     return <div className="p-6 text-center text-gray-500">Loading refund requests...</div>;
@@ -158,7 +176,17 @@ export function RefundsTabPage() {
             </Button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <p>
+                Showing {refunds.length === 0 ? 0 : pageStart + 1}-{Math.min(pageStart + refunds.length, refundsTotal)} of {refundsTotal} requests
+              </p>
+              <p>
+                Page {currentPage} / {totalPages}
+              </p>
+            </div>
+
+            <div className="space-y-3">
             {refunds.map((refund) => (
               <div
                 key={refund.refund_request_id}
@@ -296,6 +324,26 @@ export function RefundsTabPage() {
                 )}
               </div>
             ))}
+            </div>
+
+            <div className="flex items-center justify-start gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         )}
       </Card>

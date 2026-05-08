@@ -159,7 +159,9 @@ def test_registered_user_create_order_with_idempotency(client: TestClient) -> No
 
     orders_response = client.get("/api/v1/orders", headers={"Authorization": f"Bearer {token}"})
     assert orders_response.status_code == 200
-    assert len(orders_response.json()) >= 1
+    payload = orders_response.json()
+    assert payload["total"] >= 1
+    assert len(payload["items"]) >= 1
 
 
 def test_registered_user_cannot_create_order_with_insufficient_balance(client: TestClient, db_session: Session) -> None:

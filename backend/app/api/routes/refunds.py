@@ -13,6 +13,7 @@ from app.schemas.refund import (
     RefundCreateRequest,
     RefundEligibilityCheckRequest,
     RefundEligibilityCheckResponse,
+    RefundRequestListResponse,
     RefundRequestResponse,
 )
 from app.services.refund_service import RefundService
@@ -47,12 +48,22 @@ def create_refund_request(
     return result
 
 
-@router.get("/refunds/requests", response_model=list[RefundRequestResponse])
+@router.get("/refunds/requests", response_model=RefundRequestListResponse)
 def list_refund_requests(
+    limit: int = Query(default=10, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    status: str | None = Query(default=None),
+    q: str | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     refund_service: RefundService = Depends(get_refund_service),
-) -> list[RefundRequestResponse]:
-    return refund_service.list_user_refund_requests(user=current_user)
+) -> RefundRequestListResponse:
+    return refund_service.list_user_refund_requests(
+        user=current_user,
+        limit=limit,
+        offset=offset,
+        status=status,
+        query=q,
+    )
 
 
 @router.get("/refunds/requests/{refund_request_id}", response_model=RefundRequestResponse)

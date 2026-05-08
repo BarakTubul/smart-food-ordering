@@ -72,7 +72,7 @@ export function OrderDetailPage() {
 
       if (hasMatchingOrder) {
         try {
-          const timelineResponse = await apiClient.getOrderTimeline(orderId);
+          const timelineResponse = await apiClient.getOrderTimeline(orderId, { forceRefresh: true });
           setTimeline(timelineResponse);
         } catch (err) {
           console.error(`Failed to update timeline for order ${orderId}:`, err);

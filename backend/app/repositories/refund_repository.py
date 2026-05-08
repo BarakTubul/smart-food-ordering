@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -25,9 +26,47 @@ class RefundRepository:
         stmt = select(RefundRequest).where(RefundRequest.idempotency_key == idempotency_key)
         return self.db.scalar(stmt)
 
-    def list_by_user_id(self, *, user_id: int) -> list[RefundRequest]:
-        stmt = select(RefundRequest).where(RefundRequest.user_id == user_id).order_by(RefundRequest.created_at.desc())
+    def get_by_user_order(self, *, user_id: int, order_id: str) -> RefundRequest | None:
+        stmt = (
+            select(RefundRequest)
+            .where(RefundRequest.user_id == user_id, RefundRequest.order_id == order_id)
+            .order_by(RefundRequest.created_at.desc())
+        )
+        return self.db.scalar(stmt)
+
+    def list_by_user_id(
+        self,
+        *,
+        user_id: int,
+        limit: int,
+        offset: int,
+        statuses: list[str] | None = None,
+        query: str | None = None,
+    ) -> list[RefundRequest]:
+        stmt = select(RefundRequest).where(RefundRequest.user_id == user_id)
+        if statuses:
+            stmt = stmt.where(RefundRequest.status.in_(statuses))
+        if query:
+            like_query = f"%{query.strip()}%"
+            stmt = stmt.where(RefundRequest.order_id.ilike(like_query))
+
+        stmt = stmt.order_by(RefundRequest.created_at.desc()).offset(max(0, offset)).limit(max(1, limit))
         return list(self.db.scalars(stmt).all())
+
+    def count_by_user_id(
+        self,
+        *,
+        user_id: int,
+        statuses: list[str] | None = None,
+        query: str | None = None,
+    ) -> int:
+        stmt = select(func.count()).select_from(RefundRequest).where(RefundRequest.user_id == user_id)
+        if statuses:
+            stmt = stmt.where(RefundRequest.status.in_(statuses))
+        if query:
+            like_query = f"%{query.strip()}%"
+            stmt = stmt.where(RefundRequest.order_id.ilike(like_query))
+        return int(self.db.scalar(stmt) or 0)
 
     def create(
         self,
