@@ -78,7 +78,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [sessionId]);
 
   useEffect(() => {
-    // Restore auth state from server-side auth cookie.
+    // Restore auth state from per-tab bearer token when available.
+    // If the current tab has no tab-local access token, we skip cookie-based
+    // hydration to avoid switching identity when another tab updated the
+    // shared auth cookie.
+    const tabToken = apiClient.getAccessToken();
+    if (!tabToken) {
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
+
     hydrateCurrentUser()
       .then((restoredUser) => {
         if (restoredUser) {
@@ -132,11 +142,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    // Reduced polling interval to avoid frequent session checks across tabs.
+    // Keep the initial /auth/session call on load; polling is only to detect
+    // session-expired events and can be reduced or removed as needed.
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
         void checkSession();
       }
-    }, 60000);
+    }, 300000); // 5 minutes
 
     const handleFocus = () => {
       void checkSession();
