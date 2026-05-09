@@ -28,11 +28,8 @@ interface SupportConversationSnapshot {
   priority: string;
   assigned_admin_user_id: number | null;
   source_session_id: string | null;
-  escalation_reason_code: string | null;
-  escalation_reference_id: string | null;
   created_at: string;
   updated_at: string;
-  closed_at: string | null;
 }
 
 const SUPPORT_PAGE_SIZE = 30;

@@ -58,6 +58,7 @@ export function OrderPlacementPage() {
     line1: '',
     city: '',
   });
+  const [deliveryOption, setDeliveryOption] = useState<'standard' | 'express'>('standard');
   const [paymentReference, setPaymentReference] = useState('');
   const [showCheckout, setShowCheckout] = useState(false);
   const [checkout, setCheckout] = useState<t.CheckoutValidateResponse | null>(null);

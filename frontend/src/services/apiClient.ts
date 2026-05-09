@@ -440,8 +440,6 @@ class APIClient {
   ): Promise<t.SupportConversationResponse> {
     const response = await this.client.post<t.SupportConversationResponse>('/support/conversations', {
       source_session_id: payload.source_session_id || undefined,
-      escalation_reason_code: payload.escalation_reason_code || undefined,
-      escalation_reference_id: payload.escalation_reference_id || undefined,
       priority: payload.priority || 'normal',
     });
     return response.data;

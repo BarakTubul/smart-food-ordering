@@ -21,13 +21,9 @@ class SupportConversation(Base):
     priority: Mapped[str] = mapped_column(String(16), nullable=False, default="normal")
     assigned_admin_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
 
-    escalation_reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    escalation_reference_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False
     )
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

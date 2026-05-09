@@ -143,9 +143,6 @@ class OrderPlacementService:
             if not item.in_stock:
                 issues.append(f"{item.name} is out of stock")
 
-        if payload.delivery_option not in {"standard", "express"}:
-            issues.append("delivery_option must be one of: standard, express")
-
         if not user.is_guest:
             payment_guard_issue = self._validate_payment_reference(user, payload.payment_method_reference)
             if payment_guard_issue:
@@ -204,11 +201,13 @@ class OrderPlacementService:
             if previous is not None:
                 return previous.model_copy(update={"idempotent_replay": True})
 
+        if payload.delivery_option not in {"standard", "express"}:
+            raise ValidationAppError("delivery_option must be one of: standard, express")
+
         checkout = self.validate_checkout(
             user,
             CheckoutValidateRequest(
                 shipping_address=payload.shipping_address,
-                delivery_option=payload.delivery_option,
                 payment_method_reference=payload.payment_method_reference,
             ),
         )

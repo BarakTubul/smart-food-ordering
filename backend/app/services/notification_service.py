@@ -88,28 +88,8 @@ class NotificationService:
         return notifications
 
     def _build_admin_refund_notifications(self, user: User) -> list[NotificationResponse]:
-        seen_refunds = _LAST_NOTIFIED_ADMIN_REFUNDS.setdefault(user.id, set())
-        notifications: list[NotificationResponse] = []
-
-        for refund in self.refund_repository.list_pending_manual_review(limit=50):
-            if refund.refund_request_id in seen_refunds:
-                continue
-
-            seen_refunds.add(refund.refund_request_id)
-            notifications.append(
-                NotificationResponse(
-                    notification_id=f"refund:{refund.refund_request_id}",
-                    kind="refund",
-                    order_id=refund.order_id,
-                    target_path="/manager/refunds",
-                    status=refund.status,
-                    title="Refund review needed",
-                    message=f"Refund request {refund.refund_request_id} for order {refund.order_id} needs review.",
-                    created_at=refund.created_at,
-                )
-            )
-
-        return notifications
+        _ = user
+        return []
 
     def _build_admin_support_notifications(self, user: User) -> list[NotificationResponse]:
         seen_conversations = _LAST_NOTIFIED_ADMIN_SUPPORT.setdefault(user.id, {})

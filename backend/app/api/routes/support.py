@@ -68,11 +68,8 @@ def _conversation_to_response(row) -> SupportConversationResponse:
         priority=row.priority,
         assigned_admin_user_id=row.assigned_admin_user_id,
         source_session_id=row.source_session_id,
-        escalation_reason_code=row.escalation_reason_code,
-        escalation_reference_id=row.escalation_reference_id,
         created_at=row.created_at,
         updated_at=row.updated_at,
-        closed_at=row.closed_at,
     )
 
 
