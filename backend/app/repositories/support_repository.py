@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.support_conversation import SupportConversation
 from app.models.support_message import SupportMessage
+from app.services.cache import invalidate_key
 
 
 class SupportRepository:
@@ -55,6 +56,10 @@ class SupportRepository:
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
+        try:
+            invalidate_key("support:queue:unread")
+        except Exception:
+            pass
         return row
 
     def list_open_queue(self, *, limit: int = 50) -> list[SupportConversation]:
@@ -166,6 +171,10 @@ class SupportRepository:
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
+        try:
+            invalidate_key("support:queue:unread")
+        except Exception:
+            pass
         return row
 
     def release_conversation(self, *, conversation_id: str, admin_user_id: int) -> SupportConversation | None:
@@ -182,6 +191,10 @@ class SupportRepository:
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
+        try:
+            invalidate_key("support:queue:unread")
+        except Exception:
+            pass
         return row
 
     def close_conversation(self, *, conversation_id: str) -> SupportConversation | None:
@@ -196,6 +209,10 @@ class SupportRepository:
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
+        try:
+            invalidate_key("support:queue:unread")
+        except Exception:
+            pass
         return row
 
     def update_conversation_priority(self, *, conversation_id: str, priority: str) -> SupportConversation | None:
@@ -209,6 +226,10 @@ class SupportRepository:
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
+        try:
+            invalidate_key("support:queue:unread")
+        except Exception:
+            pass
         return row
 
     def mark_conversation_messages_read(self, *, conversation_id: str) -> int:
@@ -225,6 +246,10 @@ class SupportRepository:
             self.db.add(row)
         if rows:
             self.db.commit()
+            try:
+                invalidate_key("support:queue:unread")
+            except Exception:
+                pass
         return len(rows)
 
     def create_message(
@@ -256,6 +281,10 @@ class SupportRepository:
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
+        try:
+            invalidate_key("support:queue:unread")
+        except Exception:
+            pass
         return row
 
     def list_messages(

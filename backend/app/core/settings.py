@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     faq_synthesis_history_chars: int = 1200
     refund_window_hours: int = 48
     mock_data_path: str = "backend/data/mock_data.json"
+    # Redis caching configuration
+    redis_enabled: bool = False
+    redis_url: str = "redis://localhost:6379/0"
+    redis_default_ttl_seconds: int = 60
 
     @property
     def cors_origins(self) -> list[str]:

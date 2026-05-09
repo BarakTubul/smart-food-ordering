@@ -7,6 +7,7 @@ from app.schemas.notification import NotificationResponse
 from app.services.account_order_service import AccountOrderService
 from app.repositories.refund_repository import RefundRepository
 from app.repositories.support_repository import SupportRepository
+from app.services.cache.helpers import get_cached
 
 
 _LAST_NOTIFIED_STATUSES: dict[int, dict[str, str]] = {}
@@ -94,28 +95,45 @@ class NotificationService:
     def _build_admin_support_notifications(self, user: User) -> list[NotificationResponse]:
         seen_conversations = _LAST_NOTIFIED_ADMIN_SUPPORT.setdefault(user.id, {})
         notifications: list[NotificationResponse] = []
+        def _loader():
+            rows = self.support_repository.list_conversations(limit=50, unread_only=True)
+            serializable: list[dict] = []
+            for row, last_message_at, last_message_preview, unread_message_count in rows:
+                if unread_message_count <= 0 or last_message_at is None:
+                    continue
+                serializable.append(
+                    {
+                        "conversation_id": row.conversation_id,
+                        "status": row.status,
+                        "last_message_at": last_message_at.isoformat(),
+                        "last_message_preview": last_message_preview,
+                        "unread_message_count": int(unread_message_count or 0),
+                    }
+                )
+            return serializable
 
-        conversations = self.support_repository.list_conversations(limit=50, unread_only=True)
-        for row, last_message_at, last_message_preview, unread_message_count in conversations:
-            if unread_message_count <= 0 or last_message_at is None:
+        cache_key = "support:queue:unread"
+        cached = get_cached(cache_key, _loader, ttl_seconds=30)
+
+        for item in cached:
+            last_message_at = item.get("last_message_at")
+            if not last_message_at:
                 continue
-
-            last_seen = seen_conversations.get(row.conversation_id)
-            last_message_stamp = last_message_at.isoformat()
+            last_message_stamp = last_message_at
+            last_seen = seen_conversations.get(item["conversation_id"])
             if last_seen == last_message_stamp:
                 continue
 
-            seen_conversations[row.conversation_id] = last_message_stamp
+            seen_conversations[item["conversation_id"]] = last_message_stamp
             notifications.append(
                 NotificationResponse(
-                    notification_id=f"support:{row.conversation_id}:{last_message_stamp}",
+                    notification_id=f"support:{item['conversation_id']}:{last_message_stamp}",
                     kind="support",
                     order_id=None,
                     target_path="/manager/support",
-                    status=row.status,
+                    status=item.get("status"),
                     title="New support message",
-                    message=last_message_preview
-                    or f"Conversation {row.conversation_id} has {int(unread_message_count)} unread message(s).",
+                    message=(item.get("last_message_preview") or f"Conversation {item['conversation_id']} has {int(item.get('unread_message_count', 0))} unread message(s)."),
                     created_at=last_message_at,
                 )
             )
