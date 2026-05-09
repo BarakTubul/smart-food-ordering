@@ -20,7 +20,7 @@ router = APIRouter()
 
 @router.get("/auth/session", response_model=SessionStateResponse)
 def get_auth_session(
-    current_user: User = Depends(get_current_user_from_cookie),
+    current_user: User = Depends(get_current_user),
     account_order_service: AccountOrderService = Depends(get_account_order_service),
 ) -> SessionStateResponse:
     return account_order_service.get_session_state(current_user)
