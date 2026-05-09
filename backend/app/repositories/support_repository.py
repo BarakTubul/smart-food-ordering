@@ -43,8 +43,6 @@ class SupportRepository:
         customer_user_id: int,
         source_session_id: str | None,
         priority: str,
-        escalation_reason_code: str | None,
-        escalation_reference_id: str | None,
     ) -> SupportConversation:
         row = SupportConversation(
             conversation_id=conversation_id,
@@ -53,8 +51,6 @@ class SupportRepository:
             status="open",
             priority=priority,
             assigned_admin_user_id=None,
-            escalation_reason_code=escalation_reason_code,
-            escalation_reference_id=escalation_reference_id,
         )
         self.db.add(row)
         self.db.commit()
@@ -195,7 +191,6 @@ class SupportRepository:
 
         now = datetime.now(UTC)
         row.status = "closed"
-        row.closed_at = now
         row.updated_at = now
 
         self.db.add(row)
@@ -246,7 +241,6 @@ class SupportRepository:
             now = datetime.now(UTC)
             if sender_role == "customer" and conversation.status == "closed":
                 conversation.status = "open"
-                conversation.closed_at = None
                 conversation.assigned_admin_user_id = None
             conversation.updated_at = now
             self.db.add(conversation)

@@ -7,8 +7,6 @@ from pydantic import BaseModel, Field
 
 class SupportConversationCreateRequest(BaseModel):
     source_session_id: str | None = Field(default=None, min_length=1, max_length=128)
-    escalation_reason_code: str | None = Field(default=None, min_length=1, max_length=64)
-    escalation_reference_id: str | None = Field(default=None, min_length=1, max_length=64)
     priority: str = Field(default="normal", pattern="^(normal|high)$")
 
 
@@ -20,11 +18,8 @@ class SupportConversationResponse(BaseModel):
     priority: str
     assigned_admin_user_id: int | None
     source_session_id: str | None
-    escalation_reason_code: str | None
-    escalation_reference_id: str | None
     created_at: datetime
     updated_at: datetime
-    closed_at: datetime | None
     last_message_at: datetime | None = None
     last_message_preview: str | None = None
     unread_message_count: int = 0

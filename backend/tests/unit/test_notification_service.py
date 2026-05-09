@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.base import Base
 from app.repositories.order_repository import OrderRepository
+from app.repositories.refund_repository import RefundRepository
+from app.repositories.support_repository import SupportRepository
 from app.repositories.user_repository import UserRepository
 from app.services.account_order_service import AccountOrderService
 from app.services.notification_service import NotificationService, _LAST_NOTIFIED_STATUSES
@@ -36,7 +38,11 @@ def test_live_notifications_emit_once_per_status() -> None:
         session.commit()
 
         account_order_service = AccountOrderService(order_repo, user_repo)
-        notification_service = NotificationService(account_order_service)
+        notification_service = NotificationService(
+            account_order_service=account_order_service,
+            refund_repository=RefundRepository(session),
+            support_repository=SupportRepository(session),
+        )
 
         first_batch = notification_service.get_live_notifications(user)
         second_batch = notification_service.get_live_notifications(user)

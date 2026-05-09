@@ -141,3 +141,25 @@ To run both backend and frontend together:
    Runs on `http://localhost:3000`
 
 3. Visit `http://localhost:3000` and test the full customer service workflow
+
+## Maintenance: Guest Cleanup
+
+Guest users can accumulate and create many NULL-heavy rows. A safe cleanup script is available:
+
+- Dry run (default):
+   - `python -m app.scripts.cleanup_guests --days 30`
+- Execute deletions:
+   - `python -m app.scripts.cleanup_guests --days 30 --no-dry-run`
+
+Safety rules:
+- Only deletes `users` rows where `is_guest=true` and `created_at` is older than the cutoff.
+- Skips any guest user that has dependent rows (orders, refunds, support conversations/messages).
+- Deletes `conversation_messages` (and any support messages) for the guest before deleting the user.
+
+### Windows Task Scheduler
+
+Create a task that runs periodically and uses a PowerShell action like:
+
+- Program/script: `powershell.exe`
+- Arguments:
+   - `-NoProfile -ExecutionPolicy Bypass -Command "cd backend; python -m app.scripts.cleanup_guests --days 30 --no-dry-run"`

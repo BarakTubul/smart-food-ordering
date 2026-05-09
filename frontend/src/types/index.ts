@@ -127,8 +127,6 @@ export interface FAQSearchResponse {
 
 export interface SupportConversationCreateRequest {
   source_session_id?: string | null;
-  escalation_reason_code?: string | null;
-  escalation_reference_id?: string | null;
   priority?: 'normal' | 'high';
 }
 
@@ -140,11 +138,8 @@ export interface SupportConversationResponse {
   priority: string;
   assigned_admin_user_id: number | null;
   source_session_id: string | null;
-  escalation_reason_code: string | null;
-  escalation_reference_id: string | null;
   created_at: string;
   updated_at: string;
-  closed_at: string | null;
   last_message_at?: string | null;
   last_message_preview?: string | null;
   unread_message_count?: number;
@@ -308,7 +303,6 @@ export interface ShippingAddress {
 
 export interface CheckoutValidateRequest {
   shipping_address: ShippingAddress;
-  delivery_option: 'standard' | 'express';
   payment_method_reference: string;
 }
 

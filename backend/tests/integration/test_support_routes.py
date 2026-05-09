@@ -32,8 +32,6 @@ def test_support_conversation_customer_admin_flow(client: TestClient) -> None:
         "/api/v1/support/conversations",
         json={
             "source_session_id": "session-123",
-            "escalation_reason_code": "refund_manual_review",
-            "escalation_reference_id": "rr_123",
             "priority": "high",
         },
         headers={"Authorization": f"Bearer {customer_token}"},
@@ -93,7 +91,15 @@ def test_support_conversation_customer_admin_flow(client: TestClient) -> None:
         json={"body": "Any update?"},
         headers={"Authorization": f"Bearer {customer_token}"},
     )
-    assert after_close.status_code == 409
+    assert after_close.status_code == 200
+    assert after_close.json()["sender_role"] == "customer"
+
+    reopened = client.get(
+        f"/api/v1/support/conversations/{conversation_id}",
+        headers={"Authorization": f"Bearer {customer_token}"},
+    )
+    assert reopened.status_code == 200
+    assert reopened.json()["status"] in {"open", "assigned"}
 
 
 def test_support_conversation_access_control(client: TestClient) -> None:

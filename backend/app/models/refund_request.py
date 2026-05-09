@@ -30,15 +30,6 @@ class RefundRequest(Base):
     refundable_amount_value: Mapped[float | None] = mapped_column(nullable=True)
     explanation_template_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     explanation_params_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    escalation_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    escalation_queue_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    escalation_sla_deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    escalation_payload_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    claimed_by_admin_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    decided_by_admin_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False

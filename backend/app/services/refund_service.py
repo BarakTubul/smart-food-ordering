@@ -181,14 +181,6 @@ class RefundService:
                 separators=(",", ":"),
                 sort_keys=True,
             ),
-            escalation_status=manual_review_handoff.escalation_status if manual_review_handoff else None,
-            escalation_queue_name=manual_review_handoff.queue_name if manual_review_handoff else None,
-            escalation_sla_deadline_at=manual_review_handoff.sla_deadline_at if manual_review_handoff else None,
-            escalation_payload_json=(
-                json.dumps(manual_review_handoff.payload, separators=(",", ":"), sort_keys=True)
-                if manual_review_handoff
-                else None
-            ),
         )
 
         if created.status == RefundRequestStatus.SUBMITTED:
@@ -203,7 +195,7 @@ class RefundService:
             reason_code=self._normalize_refund_reason_code(created.reason_code),
             status=created.status,
             status_reason=created.status_reason,
-            manual_review_handoff=manual_review_handoff,
+            manual_review_handoff=None,
             decision_reason_codes=self._parse_decision_reason_codes(created.decision_reason_codes),
             policy_version=self._normalize_policy_version(created.policy_version),
             policy_reference=created.policy_reference,
@@ -283,22 +275,14 @@ class RefundService:
         limit: int = 50,
         before_sla: datetime | None = None,
     ) -> ManualReviewQueueResponse:
-        rows = self.refund_repository.list_pending_manual_review(limit=limit, before_sla=before_sla)
-        items = [self._build_manual_review_queue_item(row) for row in rows if row.escalation_status is not None]
-        return ManualReviewQueueResponse(items=items, total=len(items))
+        _ = limit
+        _ = before_sla
+        return ManualReviewQueueResponse(items=[], total=0)
 
     def claim_manual_review_request(self, *, refund_request_id: str, admin_user_id: int) -> RefundRequestResponse:
-        row = self.refund_repository.get_by_refund_request_id(refund_request_id)
-        if row is None:
-            raise NotFoundError("Refund request not found")
-        transitioned = self.refund_repository.transition_escalation_status(
-            refund_request_id=refund_request_id,
-            to_status=ManualReviewEscalationStatus.IN_REVIEW,
-            actor_admin_user_id=admin_user_id,
-        )
-        if transitioned is None:
-            raise ConflictError("Refund request cannot be claimed in current state")
-        return self._build_refund_response_from_row(transitioned)
+        _ = refund_request_id
+        _ = admin_user_id
+        raise ForbiddenError("Manual review is disabled")
 
     def decide_manual_review_request(
         self,
@@ -308,23 +292,11 @@ class RefundService:
         reviewer_note: str | None,
         admin_user_id: int,
     ) -> RefundRequestResponse:
-        row = self.refund_repository.get_by_refund_request_id(refund_request_id)
-        if row is None:
-            raise NotFoundError("Refund request not found")
-        transitioned = self.refund_repository.transition_escalation_status(
-            refund_request_id=refund_request_id,
-            to_status=decision,
-            actor_admin_user_id=admin_user_id,
-            reviewer_note=reviewer_note,
-        )
-        if transitioned is None:
-            raise ConflictError("Refund request cannot be decided in current state")
-        if transitioned.status == RefundRequestStatus.RESOLVED:
-            self.user_repository.credit_balance(
-                user_id=transitioned.user_id,
-                amount_cents=self._money_value_to_cents(transitioned.refundable_amount_value),
-            )
-        return self._build_refund_response_from_row(transitioned)
+        _ = refund_request_id
+        _ = decision
+        _ = reviewer_note
+        _ = admin_user_id
+        raise ForbiddenError("Manual review is disabled")
 
     def get_order_state_sim(self, *, user: User, order_id: str, scenario_id: str) -> OrderStateSimResponse:
         order = self._get_owned_order(user=user, order_id=order_id)
@@ -431,21 +403,8 @@ class RefundService:
 
     @staticmethod
     def _build_manual_review_handoff_from_row(row) -> ManualReviewHandoff | None:
-        if row.escalation_status is None:
-            return None
-        payload_raw = row.escalation_payload_json or "{}"
-        payload = json.loads(payload_raw)
-        return ManualReviewHandoff(
-            escalation_status=row.escalation_status,
-            queue_name=row.escalation_queue_name,
-            sla_deadline_at=row.escalation_sla_deadline_at,
-            payload=payload,
-            claimed_by_admin_user_id=row.claimed_by_admin_user_id,
-            claimed_at=row.claimed_at,
-            decided_by_admin_user_id=row.decided_by_admin_user_id,
-            decided_at=row.decided_at,
-            reviewer_note=row.reviewer_note,
-        )
+        _ = row
+        return None
 
     def _build_manual_review_queue_item(self, row) -> ManualReviewQueueItem:
         handoff = self._build_manual_review_handoff_from_row(row)

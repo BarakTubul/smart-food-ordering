@@ -35,8 +35,6 @@ class SupportChatService:
             customer_user_id=customer_user.id,
             source_session_id=payload.source_session_id,
             priority=payload.priority,
-            escalation_reason_code=payload.escalation_reason_code,
-            escalation_reference_id=payload.escalation_reference_id,
         )
 
     def get_conversation(self, *, current_user: User, conversation_id: str):
