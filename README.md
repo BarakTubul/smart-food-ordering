@@ -1,128 +1,252 @@
-# Smart Food Ordering Platform — Backend
+# 🍽️ Smart Food Ordering Platform — Ordering & FAQ Assistant
 
-## What Is Included
-- FastAPI app scaffold with route -> service -> repository layering
-- Centralized Pydantic settings with env separation (dev, staging, prod)
-- SQLAlchemy + PostgreSQL wiring
-- Alembic migrations with initial `users` table
-- JWT authentication utilities
-- LangGraph hybrid intent flow (rule-first, LLM fallback)
-- LLM provider abstraction with `mock` and OpenAI implementations
-- Seeded RAG FAQ retrieval with chunk citations in API responses
-- Guest mode endpoint: `POST /api/v1/auth/guest`
-- Guest-to-registered conversion endpoint: `POST /api/v1/auth/guest/convert`
-- Custom `AppError` hierarchy and global exception handlers
-- Environment-aware CORS, logging, cookie, and error detail behavior
-- Pytest unit and integration test skeletons
+> A full-stack food ordering application with an AI-powered FAQ assistant, built with FastAPI, React, and LangGraph.
 
-## Run Locally
-1. Create and activate a Python 3.11+ environment.
-2. Install dependencies:
-   - `pip install -e .[dev]`
-3. Copy env template:
-   - `cp .env.example .env`
-4. Run migrations:
-   - `alembic upgrade head`
-5. Start server:
-   - `uvicorn app.main:app --reload`
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square)
+![License](https://img.shields.io/badge/License-Unlicense-green?style=flat-square)
+![Tests](https://img.shields.io/badge/Tests-96%20passing-success?style=flat-square)
 
-## Environment Separation
-Environment-specific behavior is centralized in `app/core/settings.py`:
-- `APP_ENV` controls whether runtime is `dev`, `staging`, or `prod`.
-- Settings are loaded from `.env` and `.env.<APP_ENV>`.
-- Business logic in services/repositories is environment-agnostic.
-- Environment differences are isolated in:
-  - Config values (e.g., `DATABASE_URL`, `CORS_ORIGINS`)
-  - Security defaults (cookie `secure` and `samesite`)
-  - Error response detail exposure (detailed only in dev)
-  - Logging level
+## Table of Contents
 
-This keeps domain logic stable while allowing safe runtime policy changes per environment.
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [API Endpoints](#api-endpoints)
+- [License](#license)
+- [Contact](#contact)
+- [Acknowledgments](#acknowledgments)
 
-## LLM and Agent Mode
-- `LLM_PROVIDER=mock` keeps behavior deterministic and offline-safe.
-- `LLM_PROVIDER=openai` enables OpenAI-backed classification/synthesis.
-- `OPENAI_API_KEY` and `OPENAI_MODEL` control runtime model access.
-- LangGraph orchestrates intent flow:
-   - rule classification node
-   - confidence gate
-   - LLM classification node fallback
+## Overview
 
-## API Endpoints (Current Skeleton)
-- `POST /api/v1/auth/guest`
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/guest/convert`
-- `GET /api/v1/auth/session`
-- `GET /api/v1/account/me`
-- `GET /api/v1/orders/{order_id}`
-- `GET /api/v1/orders/{order_id}/timeline-sim`
-- `POST /api/v1/intent/resolve`
-- `POST /api/v1/faq/search`
-- `GET /api/v1/conversations/{session_id}/context`
-- `POST /api/v1/fallback/escalation-check`
-- `POST /api/v1/refunds/eligibility/check`
-- `POST /api/v1/refunds/requests`
-- `GET /api/v1/refunds/requests/{refund_request_id}`
-- `GET /api/v1/orders/{order_id}/state-sim`
-- `GET /health`
+The **Smart Food Ordering Platform** is a full-stack application demonstrating modern web development patterns, LLM integration, and production-ready architecture. Users can browse menus, place orders, and interact with an intelligent FAQ assistant powered by Retrieval-Augmented Generation (RAG).
 
-## RAG Demonstration
-- FAQ search uses seeded chunk retrieval (RAG-style) before generation.
-- Responses include `citations` (chunk id, source, snippet, score).
-- In `mock` mode, synthesis is deterministic.
-- In `openai` mode, synthesis rewrites grounded context while preserving source attribution.
+**What makes this project unique:**
+- **LangGraph-based intent routing**: Rule-first classification with LLM fallback for user queries
+- **RAG FAQ retrieval**: Semantic search over indexed FAQ chunks with citations in responses
+- **Guest-to-registered workflow**: Seamless conversion from guest to authenticated user
+- **Production patterns**: Environment-aware config, structured error handling, audit trails for refunds
+- **Full-stack**: Complete backend (FastAPI + PostgreSQL) and frontend (React + TypeScript)
 
-## Frontend Setup
+## Tech Stack
 
-A modern React + TypeScript frontend is included in the `frontend/` folder.
+**Backend:**
+- ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+- ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
+- ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=flat-square&logo=postgresql&logoColor=white)
+- ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-red?style=flat-square)
+- ![LangGraph](https://img.shields.io/badge/LangGraph-orange?style=flat-square)
+- ![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)
 
-### Frontend Quick Start
-1. Navigate to frontend:
-   ```
-   cd frontend
-   ```
-2. Install dependencies:
-   ```
-   npm install
-   ```
-3. Start dev server:
-   ```
-   npm run dev
-   ```
-   Opens on `http://localhost:3000`
+**Frontend:**
+- ![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=white)
+- ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+- ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)
+- ![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)
 
-### Frontend Features
-- **Auth Pages**: Guest access, registration, login, guest-to-registered conversion
-- **Dashboard**: Profile, order list, order timeline simulation
-- **Chat Interface**: AI intent resolution with FAQ retrieval and citations
-- **Refund Workflow**: Eligibility checking, request submission with idempotency
-- **Responsive UI**: Tailwind CSS with dark mode support
+**DevOps & Tools:**
+- Alembic (database migrations)
+- Pytest (96 passing tests)
+- pgAdmin (database administration)
 
-### Making API Calls
-The frontend proxies requests to `http://localhost:8000` via Vite dev server. JWT tokens are automatically attached to all requests from `localStorage`.
+## Quick Start
 
-### Build for Production
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- PostgreSQL 12+
+- Redis (optional, for caching)
+
+### Backend Setup
+
 ```bash
-npm run build
-npm run preview
+# Clone and navigate
+cd backend
+
+# Create and activate Python environment
+python -m venv venv
+source venv/bin/activate  # or `venv\Scripts\activate` on Windows
+
+# Install dependencies
+pip install -e .[dev]
+
+# Configure environment
+cp .env.example .env
+
+# Run migrations
+alembic upgrade head
+
+# Start server
+uvicorn app.main:app --reload
 ```
 
-## Full Stack Demo
+Server runs on `http://localhost:8000`
 
-To run both backend and frontend together:
+### Frontend Setup
 
-1. **Terminal 1 - Backend**:
-   ```
-   uvicorn app.main:app --reload
-   ```
-   Runs on `http://localhost:8000`
+```bash
+# Navigate to frontend
+cd frontend
 
-2. **Terminal 2 - Frontend**:
-   ```
-   cd frontend
-   npm run dev
-   ```
-   Runs on `http://localhost:3000`
+# Install dependencies
+npm install
 
-3. Visit `http://localhost:3000` and test the full ordering and support workflow
+# Start dev server
+npm run dev
+```
+
+Frontend runs on `http://localhost:3000`
+
+### Running Both Together
+
+**Terminal 1 - Backend:**
+```bash
+cd backend
+uvicorn app.main:app --reload
+```
+
+**Terminal 2 - Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+
+Visit `http://localhost:3000` to use the full application.
+
+## Features
+
+### 🔐 Backend Features
+- **Authentication**: Guest mode, user registration, JWT-based sessions
+- **Order Management**: Menu browsing, cart operations, order placement, lifecycle simulation
+- **AI Intent Router**: Hybrid rule + LLM-based classification for user queries
+- **FAQ Retrieval**: Semantic search with citations and source attribution
+- **Refund System**: Eligibility checking, manual review workflows, audit trails
+- **Error Handling**: Custom exception hierarchy with environment-aware detail exposure
+- **Database Migrations**: Alembic-managed schema evolution
+
+### 🎨 Frontend Features
+- **Auth Pages**: Guest access, registration, login, guest-to-registered conversion
+- **Dashboard**: Profile management, order history, order timeline simulation
+- **Chat Interface**: Real-time intent resolution with FAQ retrieval and citations
+- **Refund Workflow**: Eligibility checker, request submission with idempotency
+- **Responsive Design**: Tailwind CSS with dark mode support
+- **Type Safety**: Full TypeScript coverage
+
+## Project Structure
+
+```
+.
+├── backend/                          # FastAPI application
+│   ├── app/
+│   │   ├── api/                     # Route handlers
+│   │   ├── services/                # Business logic
+│   │   ├── repositories/            # Data access
+│   │   ├── models/                  # SQLAlchemy ORM
+│   │   ├── schemas/                 # Pydantic request/response
+│   │   ├── core/                    # Settings, security, logging
+│   │   └── ai/                      # LangGraph intent routing
+│   ├── alembic/                     # Database migrations
+│   ├── tests/                       # Unit & integration tests
+│   └── pyproject.toml
+├── frontend/                         # React + TypeScript app
+│   ├── src/
+│   │   ├── components/              # Reusable UI components
+│   │   ├── pages/                   # Page-level components
+│   │   ├── services/                # API client
+│   │   ├── context/                 # Auth state management
+│   │   └── types/                   # TypeScript interfaces
+│   ├── public/                      # Static assets
+│   └── package.json
+└── README.md
+```
+
+## Configuration
+
+### Environment Variables
+
+Key configuration options in `.env`:
+
+```bash
+# Application
+APP_NAME=Smart Food Ordering Platform — Ordering & FAQ Assistant
+APP_ENV=dev
+
+# Database
+DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/customer_service
+
+# JWT
+JWT_SECRET_KEY=your-secret-key
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
+
+# LLM
+LLM_PROVIDER=mock  # or 'openai'
+OPENAI_API_KEY=your-api-key
+OPENAI_MODEL=gpt-4o-mini
+
+# Redis (optional)
+REDIS_ENABLED=false
+REDIS_URL=redis://localhost:6379/0
+```
+
+### Environment Separation
+
+The app supports three environments via `APP_ENV`:
+- **dev**: Detailed error responses, debug logging
+- **staging**: Production settings with relaxed security
+- **prod**: Strict security, minimal error detail
+
+Settings are loaded from `.env` and `.env.<APP_ENV>` files.
+
+### LLM & FAQ Configuration
+
+- **Mock Mode**: Deterministic responses, no API calls (default)
+- **OpenAI Mode**: Real LLM-powered intent classification and FAQ synthesis
+- **RAG Retrieval**: Configurable chunk retrieval (`faq_retrieval_top_k`) and synthesis parameters
+
+## API Endpoints
+
+### Authentication
+- `POST /api/v1/auth/guest` — Create guest session
+- `POST /api/v1/auth/register` — Register new user
+- `POST /api/v1/auth/login` — Login
+- `POST /api/v1/auth/guest/convert` — Convert guest to registered user
+
+### Orders
+- `GET /api/v1/orders/{order_id}` — Get order details
+- `POST /api/v1/orders` — Create new order
+- `GET /api/v1/catalog/items` — Browse menu
+
+### AI & FAQ
+- `POST /api/v1/intent/resolve` — Resolve user intent
+- `POST /api/v1/faq/search` — Search FAQ with RAG
+
+### Refunds
+- `POST /api/v1/refunds/eligibility/check` — Check refund eligibility
+- `POST /api/v1/refunds/requests` — Submit refund request
+
+### Health
+- `GET /health` — Health check
+
+See [backend/README.md](backend/README.md) for complete endpoint documentation.
+
+## License
+
+This project is released under the **Unlicense** — it is in the public domain. See [LICENSE.txt](LICENSE.txt) for details.
+
+## Contact
+
+**GitHub:** [BarakTubul/smart-food-ordering](https://github.com/BarakTubul/smart-food-ordering)
+
+Questions or feedback? Open an issue or reach out via GitHub.
+
+## Acknowledgments
+
+- **FastAPI** — Modern async Python web framework
+- **React** — UI library
+- **LangGraph** — LLM orchestration
+- **SQLAlchemy** — Python SQL toolkit and ORM
+- **Tailwind CSS** — Utility-first CSS framework
+- **Alembic** — Database migration tool
+- Inspired by software engineering best practices and production patterns
