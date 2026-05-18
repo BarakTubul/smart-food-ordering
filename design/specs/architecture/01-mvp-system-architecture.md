@@ -1,4 +1,5 @@
-# MVP System Architecture: Customer Service Bot
+
+# MVP System Architecture: Smart Food Ordering Platform
 
 ## 1. Purpose
 Define the end-to-end architecture for MVP customer support capabilities across:

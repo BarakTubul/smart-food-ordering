@@ -1,6 +1,6 @@
-# Customer Service AI - Frontend
+# Smart Food Ordering Platform — Frontend
 
-A React + TypeScript frontend for the customer service AI agent backend. Features include guest access, account management, AI-powered chat with intent routing, and refund request processing.
+A React + TypeScript frontend for the Smart Food Ordering Platform. Features include guest access, account management, AI-powered FAQ assistant, and order management.
 
 ## Features
 

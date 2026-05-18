@@ -1,4 +1,4 @@
-# Customer Service Backend Skeleton
+# Smart Food Ordering Platform — Backend
 
 ## What Is Included
 - FastAPI app scaffold with route -> service -> repository layering
@@ -140,7 +140,7 @@ To run both backend and frontend together:
    ```
    Runs on `http://localhost:3000`
 
-3. Visit `http://localhost:3000` and test the full customer service workflow
+3. Visit `http://localhost:3000` and test the full ordering and support workflow
 
 ## Maintenance: Guest Cleanup
 

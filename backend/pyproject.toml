@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "customer-service-backend"
+name = "smart-food-ordering-backend"
 version = "0.1.0"
-description = "FastAPI backend skeleton for customer service MVP"
+description = "FastAPI backend skeleton for Smart Food Ordering Platform MVP"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",

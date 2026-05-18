@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
 import os from 'node:os'
 
-const viteCacheDir = resolve(os.tmpdir(), 'customer-service-vite-cache')
+const viteCacheDir = resolve(os.tmpdir(), 'smart-food-ordering-vite-cache')
 
 export default defineConfig({
   cacheDir: viteCacheDir,

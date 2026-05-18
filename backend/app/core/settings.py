@@ -16,11 +16,11 @@ class Environment(str, Enum):
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_name: str = "Customer Service API"
+    app_name: str = "Smart Food Ordering Platform — Ordering & FAQ Assistant"
     app_env: Environment = Environment.DEV
     api_prefix: str = "/api/v1"
 
-    database_url: str = "postgresql+psycopg://app:app@localhost:5432/customer_service"
+    database_url: str = "postgresql+psycopg://app:app@localhost:5432/ordering_platform"
 
     jwt_secret_key: str = "change-me"
     jwt_algorithm: str = "HS256"
