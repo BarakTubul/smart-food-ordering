@@ -4,7 +4,6 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-Unlicense-green?style=flat-square)
-![Tests](https://img.shields.io/badge/Tests-96%20passing-success?style=flat-square)
 
 ## Table of Contents
 
@@ -48,7 +47,7 @@ The **Smart Food Ordering Platform** is a full-stack application demonstrating m
 
 **DevOps & Tools:**
 - Alembic (database migrations)
-- Pytest (96 passing tests)
+- Pytest 
 - pgAdmin (database administration)
 
 ## Quick Start
