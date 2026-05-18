@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     app_env: Environment = Environment.DEV
     api_prefix: str = "/api/v1"
 
-    database_url: str = "postgresql+psycopg://app:app@localhost:5432/ordering_platform"
+    database_url: str = "postgresql+psycopg://app:app@localhost:5432/customer_service"
 
     jwt_secret_key: str = "change-me"
     jwt_algorithm: str = "HS256"
